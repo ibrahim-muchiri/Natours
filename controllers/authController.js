@@ -61,12 +61,24 @@ exports.protect = catchAsync(async (req, res, next) => {
   if (!token) {
     return next(new AppError('You have to login first', 401));
   }
-  //verification token(To be completed together with the errorHandle section!)
-  const decode = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
-  console.log(decode);
+  //verifying token
+  const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
+  // console.log(decoded);
+  //check if the user still exist
+  const currentUser = await User.findById(decoded.id);
+  if (!currentUser) {
+    return next(
+      new AppError('The user belonging to this token does not exist!', 401)
+    );
+  }
+  //check if the user changed the password after the token was issued
+  if (currentUser.changesPasswordAfter(decoded.iat)) {
+    return next(new AppError('user changed password, please login again', 401));
+  }
+  //Grant access to the protected routes
+  req.user = currentUser;
   next();
 });
-
 // exports.restrictTo = (...roles) => {
 //   return (req, res, next) => {
 //     if (!role.includes(req.user.role)) {
@@ -77,6 +89,3 @@ exports.protect = catchAsync(async (req, res, next) => {
 //         )
 //       );
 //     }
-//     next();
-//   };
-// };
