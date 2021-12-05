@@ -54,6 +54,8 @@ const sendErrorProd = (err, res) => {
 
 module.exports = (err, req, res, next) => {
   //   console.log(err.stack);
+  // const statusCode = statusCode;
+  // const status = status;
   err.statusCode = err.statusCode || 500;
   err.status = err.status || 'Error';
 
