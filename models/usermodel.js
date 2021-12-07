@@ -18,13 +18,11 @@ const userSchema = new mongoose.Schema({
     validate: [validator.isEmail, 'please, provide a valid email!']
   },
 
-  photo: {
-    type: String
-  },
+  photo: String,
   role: {
     type: String,
-    enum: ['users', 'guide', 'lead-guide', 'admin'],
-    default: 'users'
+    enum: ['user', 'guide', 'lead-guide', 'admin'],
+    default: 'user'
   },
   password: {
     type: String,
@@ -46,7 +44,13 @@ const userSchema = new mongoose.Schema({
   },
   passwordChangedAt: Date,
   passwordResetToken: String,
-  passwordResetExpires: Date
+  passwordResetExpires: Date,
+
+  active: {
+    type: Boolean,
+    default: true,
+    select: false
+  }
 });
 userSchema.plugin(uniqueValidator);
 
@@ -64,6 +68,7 @@ userSchema.pre('save', async function(next) {
 
 //compare  the candidatePassword(from the body) with the userpassword(one in the db)
 //instance method!
+//LOGIN
 userSchema.methods.correctPassword = async function(
   candidatePassword,
   userPassword
@@ -98,6 +103,14 @@ userSchema.methods.createPasswordResetToken = function() {
 
   return resetToken;
 };
+
+//deleteMe (To make inactive users not to appear in getAllUsers😁)
+userSchema.pre(/^find/, function(next) {
+  //this point to the current query
+  this.find({ active: { $ne: false } });
+  next();
+});
+
 userSchema.pre('save', function(next) {
   if (!this.isModified('password') || this.isNew) return next();
 

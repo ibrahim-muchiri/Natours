@@ -6,18 +6,35 @@ const catchAsync = require('./../utils/catchAsync');
 const AppError = require('./../utils/appError');
 const sendEmail = require('./../utils/email');
 
+//JWT
 const signToken = id => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN
   });
 };
 
+// //Dealing with the Token
+// const createSendToken = (user, statusCode, res) => {
+//   const token = signToken(user._id);
+
+//   res.status(statusCode).json({
+//     status: 'success',
+//     token,
+//     data: {
+//       user
+//     }
+//   });
+// };
+
 exports.signup = catchAsync(async (req, res, next) => {
   const newUser = await User.create(req.body);
-
+  // createSendToken = (newUser, 201, res);
+  // res.status(201).json({
+  //   status: 'success'
+  // });
   const token = signToken(newUser._id);
 
-  res.status(201).json({
+  res.status(200).json({
     status: 'success',
     token,
     data: {
@@ -40,13 +57,14 @@ exports.login = catchAsync(async (req, res, next) => {
     return next(new AppError('incorrect password or email', 401));
   }
 
-  // console.log(user);
-
   //send back the token to the user
   const token = signToken(user._id);
   res.status(200).json({
     status: 'success',
-    token
+    token,
+    data: {
+      user
+    }
   });
 });
 
@@ -81,6 +99,7 @@ exports.protect = catchAsync(async (req, res, next) => {
   req.user = currentUser;
   next();
 });
+
 exports.restrictTo = (...roles) => {
   return (req, res, next) => {
     if (!roles.includes(req.user.role)) {
@@ -99,10 +118,10 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
   //1.Get user on posted email
   const user = await User.findOne({ email: req.body.email });
   if (!user) {
-    return next(new AppError('The user is not not found!', 404));
+    return next(new AppError('There is no user with email address!', 404));
   }
   //2.Generate random password
-  const resetToken = user.createPasswordRessetToken();
+  const resetToken = user.createPasswordResetToken();
   await user.save({ validateBeforeSave: false });
 
   //3. Send it to the user's email
@@ -110,7 +129,7 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
     'host'
   )}/api/v1/users/resetPassword/${resetToken}`;
 
-  const message = `forgot your password? submit a PATCH request with your new password and confirmPassword to: ${resetURL}.\nif you didn't forget password please ignore this email`;
+  const message = `forgot your password? submit a PATCH request with your new password and confirmPassword to: ${resetURL}.\n if you didn't forget password please ignore this email`;
 
   try {
     await sendEmail({
@@ -136,7 +155,7 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
   }
 });
 
-exports.resetPassword = async (req, res, next) => {
+exports.resetPassword = catchAsync(async (req, res, next) => {
   //1.Get user based on the token
   const hashedPasword = crypto
     .createHash('sha256')
@@ -160,10 +179,37 @@ exports.resetPassword = async (req, res, next) => {
   //3. update changed passwordAt property fo the user
 
   //4. Log the user in , send JWT
-
   const token = signToken(user._id);
   res.status(200).json({
     status: 'success',
-    token
+    token,
+    data: {
+      user
+    }
   });
-};
+});
+
+exports.updatePassword = catchAsync(async (req, res, next) => {
+  //1) Get the user from the collection
+  const user = await User.findById(req.user._id).select('+password');
+  //2) Check if Posted current password is collect
+  if (!(await user.correctPassword(req.body.passwordCurrent, user.password))) {
+    return next(new AppError('Your current password is wrong', 401));
+  }
+  //3) if so, update the password
+  user.password = req.body.password;
+  user.passwordConfirm = req.body.passwordConfirm;
+
+  await user.save();
+
+  //User.findByIdAndUpdate will not work as inteded
+  //4) Log user in, send JWT
+  const token = signToken(user._id);
+  res.status(200).json({
+    status: 'success',
+    token,
+    data: {
+      user
+    }
+  });
+});

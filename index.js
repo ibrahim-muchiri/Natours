@@ -41,7 +41,7 @@ app.use((req, res, next) => {
 app.use('/api/v1/tours', tourRouter); //connecting route with the application
 app.use('/api/v1/users', userRouter);
 
-app.all('*', (req, res, next) => {
+app.all('/*', (req, res, next) => {
   next(new AppError(`can't find ${req.originalUrl} on this server`, 404));
 });
 
