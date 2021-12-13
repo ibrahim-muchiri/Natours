@@ -13,59 +13,66 @@ const signToken = id => {
   });
 };
 
-// //Dealing with the Token
-// const createSendToken = (user, statusCode, res) => {
-//   const token = signToken(user._id);
-
-//   res.status(statusCode).json({
-//     status: 'success',
-//     token,
-//     data: {
-//       user
-//     }
-//   });
-// };
-
-exports.signup = catchAsync(async (req, res, next) => {
-  const newUser = await User.create(req.body);
-  // createSendToken = (newUser, 201, res);
-  // res.status(201).json({
-  //   status: 'success'
-  // });
-  const token = signToken(newUser._id);
-
-  res.status(200).json({
-    status: 'success',
-    token,
-    data: {
-      user: newUser
-    }
-  });
-});
-
-exports.login = catchAsync(async (req, res, next) => {
-  const { email, password } = req.body;
-
-  //check if the email and password exist
-  if (!email || !password) {
-    return next(new AppError('please, provide email and password!', 400));
-  }
-  //check if the user exist && password is correct
-  const user = await User.findOne({ email }).select('+password');
-
-  if (!user || !(await user.correctPassword(password, user.password))) {
-    return next(new AppError('incorrect password or email', 401));
-  }
-
-  //send back the token to the user
+//Dealing with the Token
+const createSendToken = (user, statusCode, res) => {
   const token = signToken(user._id);
-  res.status(200).json({
+
+  const cookieOptions = {
+    expires: new Date(
+      Date.now() + process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000
+    ),
+
+    httpOnly: true
+  };
+  if (process.env.NODE_ENV === 'production') cookieOptions.secure = true;
+
+  res.cookie('jwt', token, cookieOptions);
+
+  //Remove password from the output
+  user.password = undefined;
+
+  res.status(statusCode).json({
     status: 'success',
     token,
     data: {
       user
     }
   });
+};
+
+exports.signup = catchAsync(async (req, res, next) => {
+  const newUser = await User.create(req.body);
+  createSendToken(newUser, 201, res);
+  const token = signToken(newUser._id);
+
+  // res.status(201).json({
+  //   status: 'success'
+  // });
+
+  // res.status(200).json({
+  //   status: 'success',
+  //   token,
+  //   data: {
+  //     user: newUser
+  //   }
+  // });
+});
+
+exports.login = catchAsync(async (req, res, next) => {
+  const { email, password } = req.body;
+
+  //1)check if the email and password exist
+  if (!email || !password) {
+    return next(new AppError('please, provide email and password!', 400));
+  }
+  //2)check if the user exist && password is correct
+  const user = await User.findOne({ email }).select('+password');
+
+  if (!user || !(await user.correctPassword(password, user.password))) {
+    return next(new AppError('incorrect password or email', 401));
+  }
+  //3.) Send the data to the user
+  createSendToken(user, 201, res);
 });
 
 exports.protect = catchAsync(async (req, res, next) => {
@@ -176,17 +183,9 @@ exports.resetPassword = catchAsync(async (req, res, next) => {
   user.PasswordResetExpires = undefined;
 
   await user.save();
-  //3. update changed passwordAt property fo the user
 
-  //4. Log the user in , send JWT
-  const token = signToken(user._id);
-  res.status(200).json({
-    status: 'success',
-    token,
-    data: {
-      user
-    }
-  });
+  //3. Log the user in , send JWT
+  createSendToken(user, 200, res);
 });
 
 exports.updatePassword = catchAsync(async (req, res, next) => {
@@ -202,14 +201,6 @@ exports.updatePassword = catchAsync(async (req, res, next) => {
 
   await user.save();
 
-  //User.findByIdAndUpdate will not work as inteded
   //4) Log user in, send JWT
-  const token = signToken(user._id);
-  res.status(200).json({
-    status: 'success',
-    token,
-    data: {
-      user
-    }
-  });
+  createSendToken(user, 201, res);
 });

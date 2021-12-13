@@ -34,7 +34,7 @@ exports.getAllTours = catchAsync(async (req, res, next) => {
 });
 
 exports.getTour = catchAsync(async (req, res, next) => {
-  const tour = await Tour.findById(req.params.id);
+  const tour = await Tour.findById(req.params.id).populate('reviews');
 
   if (!tour) {
     return next(new AppError('Please, there is no tour with that id', 404));
@@ -51,7 +51,7 @@ exports.createTour = catchAsync(async (req, res, next) => {
   //try {
   const newTour = await Tour.create(req.body);
 
-  if (!tour) {
+  if (!newTour) {
     return next(new AppError('Please, there is no tour with that id', 404));
   }
 
@@ -64,7 +64,7 @@ exports.createTour = catchAsync(async (req, res, next) => {
 });
 
 exports.updateTour = catchAsync(async (req, res, next) => {
-  const tour = await Tour.findByIdAndUpdate(req.body.id, req.body, {
+  const tour = await Tour.findByIdAndUpdate(req.params.id, req.body, {
     new: true,
     runValidators: true
   });
