@@ -66,6 +66,13 @@ userSchema.pre('save', async function(next) {
   next();
 });
 
+userSchema.pre('save', function(next) {
+  if (!this.isModified('password') || this.isNew) return next();
+
+  this.passwordChangedAt = Date.now() - 1000;
+  next();
+});
+
 //compare  the candidatePassword(from the body) with the userpassword(one in the db)
 //instance method!
 //LOGIN
@@ -108,13 +115,6 @@ userSchema.methods.createPasswordResetToken = function() {
 userSchema.pre(/^find/, function(next) {
   //this point to the current query
   this.find({ active: { $ne: false } });
-  next();
-});
-
-userSchema.pre('save', function(next) {
-  if (!this.isModified('password') || this.isNew) return next();
-
-  this.passwordChangedAt = Date.now() - 1000;
   next();
 });
 
