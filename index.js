@@ -1,4 +1,5 @@
 const express = require('express');
+const path = require('path');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
@@ -8,14 +9,21 @@ const hpp = require('hpp');
 
 const AppError = require('./utils/appError');
 const globalErrorHandler = require('./controllers/errorController');
-
 const tourRouter = require('./routes/tourRoutes');
 const userRouter = require('./routes/userRoutes');
 const reviewRouter = require('./routes/reviewRoutes');
+const viewRouter = require('./routes/viewRoutes');
 
 const app = express();
 
+app.set('view engine', 'pug');
+app.set('views', path.join(__dirname, 'views'));
+
 //1) GLOBAL MIDDLEWARES
+
+//Serving static files
+app.use(express.static(path.join(__dirname, 'public')));
+
 //Set security http Header
 app.use(helmet());
 
@@ -53,9 +61,6 @@ app.use(
   })
 );
 
-//Serving static files
-app.use(express.static(`${__dirname}/public`));
-
 app.use((req, res, next) => {
   console.log('Hello from middleware👋');
   next();
@@ -78,6 +83,10 @@ app.use((req, res, next) => {
 // app.patch('/api/v1/tours/:id', updateTour);
 // app.delete('/api/v1/tours/:id', deleteTour);
 //app.post('/api/v1/tours', creatTour);
+
+//PUG
+
+app.get('/', viewRouter);
 app.use('/api/v1/tours', tourRouter); //connecting route with the application
 app.use('/api/v1/users', userRouter);
 app.use('/api/v1/reviews', reviewRouter);
